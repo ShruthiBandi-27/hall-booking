@@ -84,21 +84,36 @@ app.post("/book-room", async (req,res) => {
 
 // fetching rooms data
 app.get("/rooms", async (req, res) => {
-    const rooms = await client.db("hall_booking").collection("rooms").find().toArray();
-    console.log(`rooms data: ${JSON.stringify(rooms)}`);
-    if(!rooms) {
+    //const rooms = await client.db("hall_booking").collection("rooms").find().toArray();
+    const projection = {"room_no":1, "date":1, "start-time": 1, "end-time": 1, "room_status": 1, "customer_details.customer_name":1 }
+    const room_details = await client.db("hall_booking").collection("rooms").aggregate([
+        {
+            $lookup: {
+                from: "customers",
+                localField: "room_no",
+                foreignField: "room_no",
+                as: "customer_details"
+            }
+        },
+        {
+            $project: projection
+        }
+    ]).toArray();
+
+    if(!room_details) {
         res.status(404).send({
             message: "No rooms found"
         })
         return;
     }
-    res.status(200).send(rooms);
 
+    console.log(`rooms data: ${JSON.stringify(room_details)}`);
+    res.status(200).send(room_details);
 })
 
-// fetching customer data
+// fetching all customers details
 app.get("/customers", async (req, res) => {
-    const projection = {customer_name: 1, room_no:1, date: 1, start_time: 1, end_time: 1, booking_id:0, _id: 0, booked_no_of_times:0, }
+    const projection = {"customer_name": 1, "room_no":1, "date":1, "start-time":1, "end-time":1}
     const customers_details = await client.db("hall_booking").collection("customers").find({},projection).toArray();
     console.log(`Customer data: ${JSON.stringify(customers_details)}`);
     if(!customers_details){
@@ -110,6 +125,34 @@ app.get("/customers", async (req, res) => {
     res.status(200).send(customers_details);
 })
 
+// fetching the selected customer data
+app.get("/customer_details/:customer_name", async (req, res) => {
+    const {customer_name} = req.params;
+    //const {mentor} = req.query;
+    console.log(`customer_name: ${customer_name}`);
+    const projection = {"customer_name": 1, "room_no":1, "date":1, "start-time": 1, "end-time": 1, "room_details.room_status":1 }
+    const customer_details = await client.db("hall_booking").collection("customers").aggregate([
+        {
+            $match : {
+                customer_name: customer_name
+            }
+        },
+        {
+            $lookup: {
+                from: "rooms",
+                localField: "room_no",
+                foreignField: "room_no",
+                as: "room_details"
+            }
+        },
+        {
+            $project: projection
+        }
+    ]).toArray();
+
+    res.status(200).send(customer_details);
+
+});
 
 app.listen(PORT, ()=> {
     console.log(`The server is listening on port ${PORT}`);
