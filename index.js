@@ -30,7 +30,7 @@ app.get("/", (req, res)=> {
 app.post("/create-room", async (req, res) => {
     const room = req.body;
     console.log(`room: ${JSON.stringify(room)}`);
-    const result = await client.db("hallBooking").collection("rooms").insertOne(room);
+    const result = await client.db("hall_booking").collection("rooms").insertOne(room);
     res.status(200).send({
         message: "Room created successfully"
     });
@@ -43,7 +43,7 @@ app.post("/book-room", async (req,res) => {
     console.log(`customer: ${JSON.stringify(customer)}`);
 
     //Checking if room is available or not
-    const room = await client.db("hallBooking").collection("rooms").findOne({room_no: room_no});
+    const room = await client.db("hall_booking").collection("rooms").findOne({room_no: room_no});
     console.log(`room_no: ${room_no}`);
     console.log(`room: ${room}`);
     if(!room) {
@@ -59,23 +59,23 @@ app.post("/book-room", async (req,res) => {
         return;
     }
 
-    const CustomerPresent = await client.db("hallBooking").collection("customers").findOne({customer_name: customer_name, room_no: room_no});
+    const CustomerPresent = await client.db("hall_booking").collection("customers").findOne({customer_name: customer_name, room_no: room_no});
     if(CustomerPresent) {
         const {booked_no_of_times} = CustomerPresent;
-        const result = await client.db("hallBooking").collection("customers").updateOne({room_no: room_no}, {$set: {booked_no_of_times : booked_no_of_times + 1}});
+        const result = await client.db("hall_booking").collection("customers").updateOne({room_no: room_no}, {$set: {booked_no_of_times : booked_no_of_times + 1}});
         console.log(`result after updating booked counter: ${result}`);
     }
     else{
     //Inserting customer info to db
     customer.booking_id = uuidv4();
     customer.booked_no_of_times = 1;
-    const result = await client.db("hallBooking").collection("customers").insertOne(customer);
+    const result = await client.db("hall_booking").collection("customers").insertOne(customer);
 
     console.log(`result after booking: ${JSON.stringify(result)}`);
     }
     
     //Updating room status as booked
-    await client.db("hallBooking").collection("rooms").updateOne({room_no: room_no}, {$set: {room_status: "Booked"}});
+    await client.db("hall_booking").collection("rooms").updateOne({room_no: room_no}, {$set: {room_status: "Booked"}});
 
     res.status(200).send({
         message: "Room Booked Successfully"
@@ -84,7 +84,7 @@ app.post("/book-room", async (req,res) => {
 
 // fetching rooms data
 app.get("/rooms", async (req, res) => {
-    const rooms = await client.db("hallBooking").collection("rooms").find().toArray();
+    const rooms = await client.db("hall_booking").collection("rooms").find().toArray();
     console.log(`rooms data: ${JSON.stringify(rooms)}`);
     if(!rooms) {
         res.status(404).send({
@@ -98,17 +98,16 @@ app.get("/rooms", async (req, res) => {
 
 // fetching customer data
 app.get("/customers", async (req, res) => {
-    const projection = {booking_id:0, booked_no_of_times:1, customer_name: 1,date: 1,start_time: 1, end_time: 1, _id: 0, room_no:1}
-    //const projection = {"booking_id":0, "booked_no_of_times":1, "customer_name": 1,"date": 1,"start_time": 1, "end_time": 1, "_id": 0, "room_no":1}
-    const customers = await client.db("hallBooking").collection("customers").find({}, projection).toArray();
-    console.log(`Customer data: ${JSON.stringify(customers)}`);
-    if(!customers){
+    const projection = {customer_name: 1, room_no:1, date: 1, start_time: 1, end_time: 1, booking_id:0, _id: 0, booked_no_of_times:0, }
+    const customers_details = await client.db("hall_booking").collection("customers").find({},projection).toArray();
+    console.log(`Customer data: ${JSON.stringify(customers_details)}`);
+    if(!customers_details){
         res.status(404).send({
             message: "No customers found"
         });
         return;
     }
-    res.status(200).send(customers);
+    res.status(200).send(customers_details);
 })
 
 
